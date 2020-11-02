@@ -1,7 +1,7 @@
 #ifndef _SERVER_H_
 #define _SERVER_H_
 
-#define SIP "192.168.0.120"
+#define SIP "192.168.137.183"
 //#define SIP "192.168.0.214"
 #define PORT 10011
 #define MAX 5
