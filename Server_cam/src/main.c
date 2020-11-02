@@ -5,6 +5,7 @@
 #include "server.h"
 #include "camera.h"
 
+
 int main(int argc, const char *argv[])
 {
 	int socketId = socketInit(SIP, PORT);
@@ -18,16 +19,19 @@ int main(int argc, const char *argv[])
 		perror("listen error");
 		return -1;
 	}
-	if(0 > cameraInit(VIDEO_DEV))
+	int cameraFd = cameraInit(VIDEO_DEV);
+	if(0 > cameraFd)
 	{
 		return -1;
 	}
-	video_flag = 0;
 	int newSocketId = 0;
+	struct sockaddr_in addr;
+	
+	int addrLength = sizeof(addr);
 	while(1)
 	{
 
-		//newSocketId  = accept(socketId, (struct sockaddr *)&addr, &addrLength);
+		newSocketId  = accept(socketId, (struct sockaddr *)&addr, &addrLength);
 		doConnect(newSocketId);
 	}
 	

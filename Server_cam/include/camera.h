@@ -2,19 +2,18 @@
 #define _CAMERA_H_
 
 #define VIDEO_DEV "/dev/video0"
-#define IMAGEHEIGHT 360
-#define IMAGEWIDTH  480
-#define FRAME_NUM   4
+#define IMAGEHEIGHT 288
+#define IMAGEWIDTH  352
+#define FRAME_NUM   30
 #define PICNAME   "/myDir/pic"
+
 struct buffer
 {
 	void * start;
 	unsigned int length;
-	long long int timestamp;
 }*buffers;
 
 
-char rgbBuffer[IMAGEHEIGHT * IMAGEWIDTH * 3];
 //初始化摄像头设备
 int cameraInit(const char * dev);
 

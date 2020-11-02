@@ -16,6 +16,10 @@
 #include "camera.h"
 
 
+extern volatile int fdset[FRAME_NUM];
+extern volatile char video_flag;
+char rgbBuffer[IMAGEHEIGHT * IMAGEWIDTH * 3];
+
 int cameraInit(const char * dev)
 {
 	//打开设备
@@ -144,6 +148,7 @@ int cameraInit(const char * dev)
 			return -1;
 		}
 	}
+
 	int arg = cameraFd;
 	pthread_t thread1;
 	pthread_create(&thread1, NULL, v4l2_frame_process, &arg);
@@ -181,14 +186,20 @@ void *v4l2_frame_process(void * arg)
 			buf.index = n_buffers;
 			ioctl(cameraFd, VIDIOC_DQBUF, &buf);
 			memset(rgbBuffer, 0, sizeof(IMAGEWIDTH * IMAGEHEIGHT * 3));
-
 			yuyv_to_rgb(buffers[n_buffers].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
-
 			memset(fileName, 0, 20);
 			sprintf(fileName, "%s%d.jpg", PICNAME, n_buffers);
-			save_rgb_to_jpg(rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT, fileName);
-		}
 
+			if(video_flag == 1)
+			{
+				if(fdset[n_buffers] == 0)
+				{
+					fdset[n_buffers] = 2;
+					save_rgb_to_jpg(rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT, fileName);		
+					fdset[n_buffers] = 1;
+				}
+			}
+		}
 		for(n_buffers = 0; n_buffers < FRAME_NUM; n_buffers++)
 		{
 			buf.index = n_buffers;
@@ -200,34 +211,34 @@ void *v4l2_frame_process(void * arg)
 
 int save_rgb_to_jpg(char *soureceData, int width, int height, char * fileName)
 {
-    struct jpeg_compress_struct cinfo ;
-    struct jpeg_error_mgr jerr ;
-    JSAMPROW  row_pointer[1] ;
-    int row_stride ;
-    char *buf=NULL ;
-    int x ;
-    FILE *fptr_jpg = fopen (fileName,"wb");
-    if(fptr_jpg==NULL)
-    {
+	struct jpeg_compress_struct cinfo ;
+	struct jpeg_error_mgr jerr ;
+	JSAMPROW  row_pointer[1] ;
+	int row_stride ;
+	char *buf=NULL ;
+	int x ;
+	FILE *fptr_jpg = fopen (fileName,"wb");
+	if(fptr_jpg==NULL)
+	{
 		printf("open file failed!/n") ;
 		return -1;
-    }
- 
-    cinfo.err = jpeg_std_error(&jerr);
-    jpeg_create_compress(&cinfo);
-    jpeg_stdio_dest(&cinfo, fptr_jpg);
-    cinfo.image_width = width;
-    cinfo.image_height = height;
-    cinfo.input_components = 3;
-    cinfo.in_color_space = JCS_RGB;
-    jpeg_set_defaults(&cinfo);
-    jpeg_set_quality(&cinfo, 80,TRUE);
-    jpeg_start_compress(&cinfo, TRUE);
-    row_stride = width * 3;
-    buf=malloc(row_stride) ;
-    row_pointer[0] = buf;
-    while (cinfo.next_scanline < height)
-    {
+	}
+
+	cinfo.err = jpeg_std_error(&jerr);
+	jpeg_create_compress(&cinfo);
+	jpeg_stdio_dest(&cinfo, fptr_jpg);
+	cinfo.image_width = width;
+	cinfo.image_height = height;
+	cinfo.input_components = 3;
+	cinfo.in_color_space = JCS_RGB;
+	jpeg_set_defaults(&cinfo);
+	jpeg_set_quality(&cinfo, 80,TRUE);
+	jpeg_start_compress(&cinfo, TRUE);
+	row_stride = width * 3;
+	buf=malloc(row_stride) ;
+	row_pointer[0] = buf;
+	while (cinfo.next_scanline < height)
+	{
 		for (x = 0; x < row_stride; x+=3)
 		{
 			buf[x]   = soureceData[x];
@@ -236,66 +247,66 @@ int save_rgb_to_jpg(char *soureceData, int width, int height, char * fileName)
 		}
 		jpeg_write_scanlines (&cinfo, row_pointer, 1);//critical
 		soureceData += row_stride;
-    }
-    jpeg_finish_compress(&cinfo);
-    fclose(fptr_jpg);
-    jpeg_destroy_compress(&cinfo);
-    free(buf);
-    return 0;
+	}
+	jpeg_finish_compress(&cinfo);
+	fclose(fptr_jpg);
+	jpeg_destroy_compress(&cinfo);
+	free(buf);
+	return 0;
 }  
 
 int yuyv_to_rgb(char * pointer, unsigned char * frame_buffer, int width, int height)
 {
-    int i,j;
-    unsigned char y1,y2,u,v;
-    int r1,g1,b1,r2,g2,b2;
-    for(i=0;i<height;i++)
-    {
+	int i,j;
+	unsigned char y1,y2,u,v;
+	int r1,g1,b1,r2,g2,b2;
+	for(i=0;i<height;i++)
+	{
 		for(j=0;j<width/2;j++)//每次取4个字节，也就是两个像素点，转换rgb，6个字节，还是两个像素点
 		{
 			y1 = *( pointer + (i*width/2+j)*4);     
 			u  = *( pointer + (i*width/2+j)*4 + 1);
 			y2 = *( pointer + (i*width/2+j)*4 + 2);
 			v  = *( pointer + (i*width/2+j)*4 + 3);
-		 
+
 			r1 = y1 + 1.042*(v-128);
 			g1 = y1 - 0.34414*(u-128) - 0.71414*(v-128);
 			b1 = y1 + 1.772*(u-128);
-		 
+
 			r2 = y2 + 1.042*(v-128);
 			g2 = y2 - 0.34414*(u-128) - 0.71414*(v-128);
 			b2 = y2 + 1.772*(u-128);
-		 
+
 			if(r1>255)
-			r1 = 255;
+				r1 = 255;
 			else if(r1<0)
-			r1 = 0;
-		 
+				r1 = 0;
+
 			if(b1>255)
-			b1 = 255;
+				b1 = 255;
 			else if(b1<0)
-			b1 = 0;    
-		 
+				b1 = 0;    
+
 			if(g1>255)
-			g1 = 255;
+				g1 = 255;
 			else if(g1<0)
-			g1 = 0;    
-		 
+				g1 = 0;    
+
 			if(r2>255)
-			r2 = 255;
+				r2 = 255;
 			else if(r2<0)
-			r2 = 0;
-		 
+				r2 = 0;
+
 			if(b2>255)
-			b2 = 255;
+				b2 = 255;
 			else if(b2<0)
-			b2 = 0;    
-		 
+				b2 = 0;    
+
 			if(g2>255)
-			g2 = 255;
+				g2 = 255;
 			else if(g2<0)
-			g2 = 0;        
-		 
+				g2 = 0;        
+
 			*(frame_buffer + (i*width/2+j)*6    ) = (unsigned char)b1;
 			*(frame_buffer + (i*width/2+j)*6 + 1) = (unsigned char)g1;
 			*(frame_buffer + (i*width/2+j)*6 + 2) = (unsigned char)r1;
@@ -303,5 +314,5 @@ int yuyv_to_rgb(char * pointer, unsigned char * frame_buffer, int width, int hei
 			*(frame_buffer + (i*width/2+j)*6 + 4) = (unsigned char)g2;
 			*(frame_buffer + (i*width/2+j)*6 + 5) = (unsigned char)r2;
 		}
-    }
+	}
 }

@@ -9,7 +9,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
 
+volatile int fdset[FRAME_NUM] = {0};
+volatile char video_flag = 0;
 
 int socketInit(const char * ip, const int port)
 {
@@ -44,37 +48,39 @@ int socketInit(const char * ip, const int port)
 		perror("bind error");
 		return -1;
 	}
-	
 	return socketId;
 }
 
 int doConnect(const int newSocketId)
 {
-	int recvCommand = 0;
+	char recvCommand[10] = {0};
+	int command = 0;
 	pthread_t thread1;
 	int arg = newSocketId;
 
 	pthread_create(&thread1, NULL, sendImg, &arg);
 	pthread_detach(thread1);
-/*
-	if(0 > recv(newSocketId, &recvCommand, sizeof(int), 0))
+
+	while(1)
 	{
-		perror("recv error");
-		return -1;
-	}
-	switch(recvCommand)
-	{
-		case VIDEO_ON:
-			video_flag = VIDEO_ON;
-			break;
-		case VIDEO_OFF:
-			video_flag = VIDEO_OFF;
-			break;
-		default:
+		if(0 >= recv(newSocketId, &recvCommand, sizeof(recvCommand), 0))
+		{
+			perror("recv error");
 			video_flag = -1;
-	}*/
-	video_flag = VIDEO_ON;
-	while(1);
+			close(newSocketId);
+			return -1;
+		}
+		command = atoi(recvCommand);
+		switch(command)
+		{
+			case VIDEO_ON:
+				video_flag = VIDEO_ON;
+				break;
+			case VIDEO_OFF:
+				video_flag = VIDEO_OFF;
+				break;
+		}
+	}
 
 }
 
@@ -82,32 +88,73 @@ void *sendImg(void * arg)
 {
 	int newSocketId = *((int *)arg);
 	int fd = 0;
+	video_flag = VIDEO_OFF;
 	char filename[20] = {0};
-	int i = 0, filesize;
+	int i = 0, filesize = 0, len = 0;
 	struct stat buf;
+
 	while(1)
 	{
-		if(VIDEO_ON == video_flag)
+		for(i = 0; i < FRAME_NUM; i++)
 		{
-			for(i = 0; i < FRAME_NUM; i++)
+			switch(video_flag)
 			{
-				sprintf(filename, "%s%d.jpg", PICNAME, i);
-				fd = open(filename, O_RDONLY);
-				if(fd < 0)
+				case VIDEO_ON:
 				{
-					perror("open");
-					continue;
+					sprintf(filename, "%s%d.jpg", PICNAME, i);
+					if(fdset[i] != 1)
+					{
+						printf("-------\r\n");
+						break;
+					}
+					fdset[i] = 2;
+					fd = open(filename, O_RDONLY);
+					if(fd < 0)
+					{
+						perror("open");
+						fdset[i] = 0;
+						break;
+					}
+
+					fstat(fd, &buf);
+					filesize = buf.st_size;
+					printf("%d\r\n", filesize);
+
+					memset(msg, 0, SIZE);
+					
+					sprintf(msg, "%d%d", FILE_SIZE, filesize);
+					int ret = send(newSocketId, msg, SIZE, 0);
+					if(0 > ret)
+					{
+						fdset[i] = 0;
+						return;
+					}
+					
+					while(filesize > 0)
+					{
+						memset(msg, 0, SIZE);
+						sprintf(msg, "%d", FILE_MSG);
+						len = read(fd, msg+5, SIZE-5);
+						if(0 > send(newSocketId, msg, SIZE, 0))
+						{
+							fdset[i] = 0;
+							return;
+						}
+						filesize -= len;
+					}
+					fdset[i] = 0;
+					close(fd);
+					break;
 				}
-				fstat(fd, &buf);
-				filesize = buf.st_size;
-				printf("filesize = %d\n", filesize);
-				close(fd);
+				case VIDEO_OFF:	
+					break;
+				default:
+				{
+					printf("exit\r\n");
+					return;
+				}
 			}
 		}
-		else if(VIDEO_OFF == video_flag)
-			;
-		else
-			break;
 	}
-	
 }
+	

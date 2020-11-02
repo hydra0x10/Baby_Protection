@@ -1,19 +1,26 @@
 #ifndef _SERVER_H_
 #define _SERVER_H_
 
-//#define SIP "192.168.0.120"
-#define SIP  "127.0.0.1"
+#define SIP "192.168.0.120"
+//#define SIP "192.168.0.214"
 #define PORT 10011
 #define MAX 5
-
+#define SIZE 512
 
 enum COMMAND
 {
 	VIDEO_ON = 1,
-	VIDEO_OFF = 2,
+	VIDEO_OFF,
 };
 
-char video_flag;
+enum TYPE
+{
+	FILE_SIZE = 10101,
+	FILE_MSG = 10102,
+};
+
+char msg[SIZE];
+char * image;
 
 int socketInit(const char * ip, const int port);
 /*

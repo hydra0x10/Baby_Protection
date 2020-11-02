@@ -6,7 +6,7 @@ all:${OBJ}
 	make -C ./camera/
 
 server.o:server.c ../include/server.h  ../include/camera.h
-	${CC} $< -o ${@} -I../include/ -lpthread
+	${CC} $< -o ${@} -I../include/
 main.o:main.c 
 	${CC} $< -o ${@} -I../include/
 
