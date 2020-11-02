@@ -1,5 +1,5 @@
 OBJ= server.o main.o
-CC = arm-linux-gcc -c
+CC = arm-linux-gnueabihf-gcc -c
 
 all:${OBJ}
 	cp ${OBJ} ../obj/
