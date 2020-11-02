@@ -2,10 +2,10 @@
 #define _CAMERA_H_
 
 #define VIDEO_DEV "/dev/video0"
-#define IMAGEHEIGHT 288
-#define IMAGEWIDTH  352
+#define IMAGEHEIGHT 720
+#define IMAGEWIDTH  1280
 #define FRAME_NUM   30
-#define PICNAME   "/myDir/pic"
+#define PICNAME   "/home/pi/server/cache"
 
 struct buffer
 {
