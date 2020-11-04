@@ -4,7 +4,7 @@
 #include <QWidget>
 
 #define SIZE 512
-#define SIP "192.168.137.183"
+#define SIP "169.254.29.189"
 #define PORT 10011
 
 extern QTcpSocket * socket;

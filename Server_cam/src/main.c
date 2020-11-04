@@ -26,13 +26,12 @@ int main(int argc, const char *argv[])
 	}
 	int newSocketId = 0;
 	struct sockaddr_in addr;
-	
 	int addrLength = sizeof(addr);
 	while(1)
 	{
 
 		newSocketId  = accept(socketId, (struct sockaddr *)&addr, &addrLength);
-		doConnect(newSocketId);
+		doConnect(newSocketId, cameraFd);
 	}
 	
 	return 0;

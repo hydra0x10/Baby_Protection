@@ -2,23 +2,20 @@
 #define _CAMERA_H_
 
 #define VIDEO_DEV "/dev/video0"
-#define IMAGEHEIGHT 720
-#define IMAGEWIDTH  1280
+#define IMAGEHEIGHT 288
+#define IMAGEWIDTH  352
 #define FRAME_NUM   30
-#define PICNAME   "/home/pi/server/cache"
-
-struct buffer
-{
-	void * start;
-	unsigned int length;
-}*buffers;
+#define PICNAME   "/myDir/pic"
 
 
 //初始化摄像头设备
 int cameraInit(const char * dev);
 
-//v4l2采集图片线程
-void *v4l2_frame_process(void * arg);
+//入队
+int qbuf(int cameraFd, int index);
+
+//出队
+int dqbuf(int cameraFd, int index);
 
 //YUV转RGB
 int yuyv_to_rgb(char * pointer, unsigned char * frame_buffer, int width, int height);

@@ -15,10 +15,13 @@
 #include <linux/ioctl.h>
 #include "camera.h"
 
-
-extern volatile int fdset[FRAME_NUM];
-extern volatile char video_flag;
 char rgbBuffer[IMAGEHEIGHT * IMAGEWIDTH * 3];
+struct v4l2_buffer buf;
+struct buffer
+{
+	void * start;
+	unsigned int length;
+}*buffers;
 
 int cameraInit(const char * dev)
 {
@@ -126,7 +129,6 @@ int cameraInit(const char * dev)
 		printf("request buffers error\r\n");
 		return -1;
 	}
-	struct v4l2_buffer buf;
 	buffers = malloc(req.count * sizeof(*buffers));
 	memset(&buf, 0, sizeof(buf));
 	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -148,64 +150,32 @@ int cameraInit(const char * dev)
 			return -1;
 		}
 	}
-
-	int arg = cameraFd;
-	pthread_t thread1;
-	pthread_create(&thread1, NULL, v4l2_frame_process, &arg);
-	pthread_detach(thread1);
-	printf("thread1  ok\r\n");
-
-	return cameraFd;
-}
-
-
-void *v4l2_frame_process(void * arg)
-{
-	int cameraFd = *((int *)arg);
-	struct v4l2_buffer buf;
-	unsigned int n_buffers;
-	int ret = 0;
-	memset(&buf, 0, sizeof(buf));
-	buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf.memory = V4L2_MEMORY_MMAP;
-	char fileName[20] = {0};
-
+	//缓冲区入队
 	for(n_buffers = 0; n_buffers < FRAME_NUM; n_buffers++)
 	{
 		buf.index = n_buffers;
 		ioctl(cameraFd, VIDIOC_QBUF, &buf);
 	}
+	
 	enum v4l2_buf_type v4l2type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	ioctl(cameraFd, VIDIOC_STREAMON, &v4l2type); 
+	
+	return cameraFd;
+}
 
-	while(1)
-	{
-		//出队
-		for(n_buffers = 0; n_buffers < FRAME_NUM; n_buffers++)
-		{
-			buf.index = n_buffers;
-			ioctl(cameraFd, VIDIOC_DQBUF, &buf);
-			memset(rgbBuffer, 0, sizeof(IMAGEWIDTH * IMAGEHEIGHT * 3));
-			yuyv_to_rgb(buffers[n_buffers].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
-			memset(fileName, 0, 20);
-			sprintf(fileName, "%s%d.jpg", PICNAME, n_buffers);
 
-			if(video_flag == 1)
-			{
-				if(fdset[n_buffers] == 0)
-				{
-					fdset[n_buffers] = 2;
-					save_rgb_to_jpg(rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT, fileName);		
-					fdset[n_buffers] = 1;
-				}
-			}
-		}
-		for(n_buffers = 0; n_buffers < FRAME_NUM; n_buffers++)
-		{
-			buf.index = n_buffers;
-			ioctl(cameraFd, VIDIOC_QBUF, &buf);
-		}
-	}
+//入队
+int qbuf(int cameraFd, int index)
+{
+	buf.index = index;
+	ioctl(cameraFd, VIDIOC_QBUF, &buf);
+}
+
+//出队
+int dqbuf(int cameraFd, int index)
+{
+	buf.index = index;
+	ioctl(cameraFd, VIDIOC_DQBUF, &buf);
 }
 
 

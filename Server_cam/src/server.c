@@ -12,8 +12,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-volatile int fdset[FRAME_NUM] = {0};
+volatile int fdset[FRAME_NUM] = {2};
 volatile char video_flag = 0;
+volatile char video_recv;
+extern struct buffer
+{
+	void * start;
+	unsigned int length;
+}*buffers;
+extern char rgbBuffer[IMAGEHEIGHT * IMAGEWIDTH * 3];
+int cameraFd;
 
 int socketInit(const char * ip, const int port)
 {
@@ -51,33 +59,44 @@ int socketInit(const char * ip, const int port)
 	return socketId;
 }
 
-int doConnect(const int newSocketId)
+int doConnect(const int newSocketId, int fd)
 {
-	char recvCommand[10] = {0};
-	int command = 0;
+	
+	char recvCommand;
 	pthread_t thread1;
 	int arg = newSocketId;
-
+	int command = 0;
 	pthread_create(&thread1, NULL, sendImg, &arg);
 	pthread_detach(thread1);
-
+	int nSendBuf= 32 * 1024;
+	setsockopt(newSocketId,SOL_SOCKET,SO_SNDBUF,(const char*)&nSendBuf,sizeof(int));
+	char filename[20] = {0};
+	int j = 0;
+	cameraFd = fd;
 	while(1)
 	{
 		if(0 >= recv(newSocketId, &recvCommand, sizeof(recvCommand), 0))
 		{
 			perror("recv error");
 			video_flag = -1;
+			video_recv = -1;
 			close(newSocketId);
 			return -1;
 		}
-		command = atoi(recvCommand);
+		printf("recvCommand = %c\r\n", recvCommand);
+		command = recvCommand - '0';
 		switch(command)
 		{
 			case VIDEO_ON:
 				video_flag = VIDEO_ON;
+				video_recv = VIDEO_RECV;
+				fdset[0] = 0;
 				break;
 			case VIDEO_OFF:
 				video_flag = VIDEO_OFF;
+				break;
+			case VIDEO_RECV:
+				video_recv = VIDEO_RECV;
 				break;
 		}
 	}
@@ -87,74 +106,53 @@ int doConnect(const int newSocketId)
 void *sendImg(void * arg)
 {
 	int newSocketId = *((int *)arg);
+	char *msg = (char *)malloc(SIZE);
 	int fd = 0;
 	video_flag = VIDEO_OFF;
-	char filename[20] = {0};
+	char fileName[20] = {0};
 	int i = 0, filesize = 0, len = 0;
 	struct stat buf;
-
+	
 	while(1)
 	{
-		for(i = 0; i < FRAME_NUM; i++)
+		dqbuf(cameraFd, i);
+		memset(fileName, 0, 20);
+		sprintf(fileName, "%s%d", PICNAME, i);
+		
+		//客户端断开连接
+		if(video_flag == -1)
 		{
-			switch(video_flag)
-			{
-				case VIDEO_ON:
-				{
-					sprintf(filename, "%s%d.jpg", PICNAME, i);
-					if(fdset[i] != 1)
-					{
-						printf("-------\r\n");
-						break;
-					}
-					fdset[i] = 2;
-					fd = open(filename, O_RDONLY);
-					if(fd < 0)
-					{
-						perror("open");
-						fdset[i] = 0;
-						break;
-					}
-
-					fstat(fd, &buf);
-					filesize = buf.st_size;
-					printf("%d\r\n", filesize);
-
-					memset(msg, 0, SIZE);
-					
-					sprintf(msg, "%d%d", FILE_SIZE, filesize);
-					int ret = send(newSocketId, msg, SIZE, 0);
-					if(0 > ret)
-					{
-						fdset[i] = 0;
-						return;
-					}
-					
-					while(filesize > 0)
-					{
-						memset(msg, 0, SIZE);
-						sprintf(msg, "%d", FILE_MSG);
-						len = read(fd, msg+5, SIZE-5);
-						if(0 > send(newSocketId, msg, SIZE, 0))
-						{
-							fdset[i] = 0;
-							return;
-						}
-						filesize -= len;
-					}
-					fdset[i] = 0;
-					close(fd);
-					break;
-				}
-				case VIDEO_OFF:	
-					break;
-				default:
-				{
-					printf("exit\r\n");
-					return;
-				}
-			}
+			break;
 		}
+		
+		if(video_flag == VIDEO_ON && video_recv == VIDEO_RECV)
+		{
+			memset(rgbBuffer, 0, (3 * IMAGEHEIGHT * IMAGEWIDTH));
+			yuyv_to_rgb(buffers[i].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
+			save_rgb_to_jpg(rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT, fileName);
+			fd = open(fileName, O_RDONLY);
+			if(fd < 0)
+			{
+				perror("open");
+
+				break;
+			}
+			fstat(fd, &buf);
+			filesize = buf.st_size;
+			memset(msg, 0, SIZE);
+			sprintf(msg, "%d%d#", _FILE, filesize);
+			read(fd, msg+strlen(msg), SIZE-strlen(msg));
+			if(0 > send(newSocketId, msg, SIZE, 0))
+			{
+				perror("send");
+				break;
+			}
+			video_recv = -1;
+			close(fd);
+		}
+		qbuf(cameraFd, i);
+		i++;
+		if(i == 30) i = 0;
 	}
+	free(msg);
 }
-	
