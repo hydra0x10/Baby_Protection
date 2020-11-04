@@ -23,6 +23,7 @@ Widget::~Widget()
 void Widget::receiveshow()
 {
     connect(socket,SIGNAL(readyRead()),this,SLOT(recv()));
+    connect(socket, SIGNAL(disconnected()),this, SLOT(disconnectedSlot()));
     QPixmap pix;
     this->show();
 }
@@ -40,6 +41,14 @@ void Widget::recv()
     {
        disposeImage(buf);
     }
+    if(buf[0]== '1'
+            && buf[1] == '0'
+            && buf[2] == '1'
+            && buf[3] == '0'
+            && buf[4] == '2')
+    {
+        updateHumiTemp(buf);
+    }
 
 }
 
@@ -55,12 +64,6 @@ void Widget::showImage(const char * src_image, int size_image)
 {
     pix.loadFromData((uchar *)src_image, size_image, "jpeg");
     ui->vedioLabel->setPixmap(pix);
-    //ui->vedioLabel->setScaledContents(true);
-
-
-    QString str;
-    str.sprintf("%d",VIDEO_RECV);
-    socket->write(str.toUtf8());
 }
 
 void Widget::disposeImage(const char * buf)
@@ -78,7 +81,8 @@ void Widget::disposeImage(const char * buf)
         i++;
     }
     size = atoi(filesize);
-    qDebug() << size << endl;
+    qDebug() << video.append(buf+i, size) << endl;
+    video.clear();
     showImage(buf+i, size);
 }
 
@@ -104,19 +108,34 @@ void Widget::on_creampushButton_clicked()
 
 void Widget::on_exit_clicked()
 {
+
     this->close();
     emit dlgshow();
 }
 
-int Widget::getFileSize(char * buf, int len)
+void Widget::updateHumiTemp(const char *buf)
 {
+    //10102湿度#温度
     int i = 0;
-    char file_size[10] = {0};
-    for(i = 0; i < len - 5; i++)
+    char temp[10] = {0};
+    char humi[10] = {0};
+    if(buf[5] == '\0')
+        return;
+    for(i = 5; i < SIZE; i++)
     {
-        if(buf[i + 5] == '\0')
+        if(buf[i] == '#')
             break;
-        file_size[i] = buf[i+5];
+        humi[i-5] = buf[i];
+        qDebug() << buf[i] << endl;
     }
-    return atoi(file_size);
+    i++;
+    int j;
+    for(j = 0; i < SIZE; i++, j++)
+    {
+        if(buf[i] == '\0')
+            break;
+        temp[j] = buf[i];
+    }
+    ui->show_temp->setText(temp);
+    ui->show_humi->setText(humi);
 }

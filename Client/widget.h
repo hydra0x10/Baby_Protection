@@ -26,8 +26,8 @@ public:
     ~Widget();
     void paintEvent(QPaintEvent *event);
     void showImage(const char *src_image, int size_image);
-    int getFileSize(char * buf, int len);
     void disposeImage(const char *buf);
+    void updateHumiTemp(const char *buf);
 
 public slots:
     void recv();

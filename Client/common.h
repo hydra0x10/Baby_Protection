@@ -3,7 +3,7 @@
 
 #include <QWidget>
 
-#define SIZE (32*1024)
+#define SIZE (24*1024)
 #define SIP "192.168.0.120"
 #define PORT 10011
 
