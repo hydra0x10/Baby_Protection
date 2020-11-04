@@ -26,28 +26,21 @@ void Widget::receiveshow()
     QPixmap pix;
     this->show();
 }
+char buf[SIZE] = {0};
 
 void Widget::recv()
 {
-    QByteArray recv_msg = socket->read(SIZE);
-    char * buf = recv_msg.data();
-    if(recv_msg.at(0) == '1'
-            && recv_msg.at(1) == '0'
-            && recv_msg.at(2) == '1'
-            && recv_msg.at(3) == '0'
-            && recv_msg.at(4) == '1')
+    memset(buf, 0, SIZE);
+    socket->read(buf, SIZE);
+    if(buf[0]== '1'
+            && buf[1] == '0'
+            && buf[2] == '1'
+            && buf[3] == '0'
+            && buf[4] == '1')
     {
-        size = getFileSize(buf, SIZE);
-        qDebug() << size << endl;
+       disposeImage(buf);
     }
-    if(recv_msg.at(0) == '1'
-            && recv_msg.at(1) == '0'
-            && recv_msg.at(2) == '1'
-            && recv_msg.at(3) == '0'
-            && recv_msg.at(4) == '2')
-    {
-        disposeImage(recv_msg);
-    }
+
 }
 
 void Widget::paintEvent(QPaintEvent *event)  //背景
@@ -58,29 +51,35 @@ void Widget::paintEvent(QPaintEvent *event)  //背景
     pt.drawImage(0,0,drawing,0,0,this->width(),this->height());
 }
 
-void Widget::showImage()
+void Widget::showImage(const char * src_image, int size_image)
 {
-    pix.loadFromData(video, "jpg");
+    pix.loadFromData((uchar *)src_image, size_image, "jpeg");
     ui->vedioLabel->setPixmap(pix);
-    ui->vedioLabel->setScaledContents(true);
-    video.clear();
+    //ui->vedioLabel->setScaledContents(true);
+
+
+    QString str;
+    str.sprintf("%d",VIDEO_RECV);
+    socket->write(str.toUtf8());
 }
 
-void Widget::disposeImage(QByteArray src_msg)
+void Widget::disposeImage(const char * buf)
 {
-    char *buf = src_msg.data();
-
-    if(size < SIZE - 5)
-        video.append(buf+5, strlen(buf) - 5);
-    else
-        video.append(buf+5, SIZE - 5);
-    size = size - SIZE + 5;
-
-    if(size <= 0)
+    int i = 5; //0-4 10101 文件大小 # -----
+    char filesize[10];
+    while(1)
     {
-        qDebug() << video << endl;
-        showImage();
+        if(buf[i] == '#')
+        {
+            i++;
+            break;
+        }
+        filesize[i-5] = buf[i];
+        i++;
     }
+    size = atoi(filesize);
+    qDebug() << size << endl;
+    showImage(buf+i, size);
 }
 
 void Widget::on_creampushButton_clicked()
