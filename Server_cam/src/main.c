@@ -19,7 +19,7 @@ int main(int argc, const char *argv[])
 		perror("listen error");
 		return -1;
 	}
-	int cameraFd = cameraInit(VIDEO_DEV);
+	int cameraFd = camera_init(VIDEO_DEV, IMAGEWIDTH, IMAGEHEIGHT);
 	if(0 > cameraFd)
 	{
 		return -1;
@@ -29,7 +29,7 @@ int main(int argc, const char *argv[])
 	int addrLength = sizeof(addr);
 	while(1)
 	{
-
+		printf("wait client connect:\r\n");
 		newSocketId  = accept(socketId, (struct sockaddr *)&addr, &addrLength);
 		doConnect(newSocketId, cameraFd);
 	}

@@ -4,22 +4,23 @@
 #define SIP "192.168.0.120"
 //#define SIP "192.168.0.214"
 #define PORT 10011
-#define MAX 5
+#define MAX 50
 #define SIZE (32*1024)
 
 enum COMMAND
 {
 	VIDEO_ON = 1,
 	VIDEO_OFF,
-	VIDEO_RECV,
+	LED_ON,
+	LED_OFF
 };
 
 enum TYPE
 {
 	_FILE = 10101,
+	_HUMI_TEMP,
 };
 
-char * msg;
 
 int socketInit(const char * ip, const int port);
 /*
@@ -48,4 +49,8 @@ void *sendImg(void * arg);
  参数:
  	已连接的套接字地址
  */
+
+void *send_Humi_Temp(void * arg);
+
+
 #endif //_SERVER_H_

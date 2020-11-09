@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QDebug>
 #include "QImage"
+#include "QFile"
 #include "QPainter"
 
 
@@ -22,16 +23,19 @@ Widget::~Widget()
 
 void Widget::receiveshow()
 {
+    ui->led_off->setDisabled(true);
+    ui->led_on->setEnabled(true);
+    ui->creampushButton->setEnabled(true);
     connect(socket,SIGNAL(readyRead()),this,SLOT(recv()));
-    connect(socket, SIGNAL(disconnected()),this, SLOT(disconnectedSlot()));
-    QPixmap pix;
     this->show();
 }
-char buf[SIZE] = {0};
+
 
 void Widget::recv()
 {
-    memset(buf, 0, SIZE);
+    char buf[SIZE] = {0};
+    if(socket->bytesAvailable() < SIZE)
+        return;
     socket->read(buf, SIZE);
     if(buf[0]== '1'
             && buf[1] == '0'
@@ -39,19 +43,19 @@ void Widget::recv()
             && buf[3] == '0'
             && buf[4] == '1')
     {
-       disposeImage(buf);
+       disposeImage((uchar *)buf);
     }
+
     if(buf[0]== '1'
             && buf[1] == '0'
             && buf[2] == '1'
             && buf[3] == '0'
             && buf[4] == '2')
     {
-        updateHumiTemp(buf);
+        updateHumiTemp((uchar *)buf);
     }
 
 }
-
 void Widget::paintEvent(QPaintEvent *event)  //背景
 {
     QPainter pt(this);
@@ -60,16 +64,22 @@ void Widget::paintEvent(QPaintEvent *event)  //背景
     pt.drawImage(0,0,drawing,0,0,this->width(),this->height());
 }
 
-void Widget::showImage(const char * src_image, int size_image)
+void Widget::showImage(const uchar * src_image, int size_image)
 {
-    pix.loadFromData((uchar *)src_image, size_image, "jpeg");
-    ui->vedioLabel->setPixmap(pix);
+    qDebug() << size_image << endl;
+    qDebug() << src_image[size_image - 2] << endl;
+    if(src_image[size_image - 1] == 217)
+    {
+        QPixmap pix;
+        pix.loadFromData(src_image, size_image, "jpg");
+        ui->vedioLabel->setPixmap(pix);
+    }
 }
 
-void Widget::disposeImage(const char * buf)
+void Widget::disposeImage(const uchar * buf)
 {
-    int i = 5; //0-4 10101 文件大小 # -----
-    char filesize[10];
+    int i = 5;
+    char filesize[10] = {0};
     while(1)
     {
         if(buf[i] == '#')
@@ -81,8 +91,6 @@ void Widget::disposeImage(const char * buf)
         i++;
     }
     size = atoi(filesize);
-    qDebug() << video.append(buf+i, size) << endl;
-    video.clear();
     showImage(buf+i, size);
 }
 
@@ -108,12 +116,12 @@ void Widget::on_creampushButton_clicked()
 
 void Widget::on_exit_clicked()
 {
-
+    socket->close();
     this->close();
     emit dlgshow();
 }
 
-void Widget::updateHumiTemp(const char *buf)
+void Widget::updateHumiTemp(const uchar *buf)
 {
     //10102湿度#温度
     int i = 0;
@@ -126,16 +134,33 @@ void Widget::updateHumiTemp(const char *buf)
         if(buf[i] == '#')
             break;
         humi[i-5] = buf[i];
-        qDebug() << buf[i] << endl;
     }
     i++;
     int j;
     for(j = 0; i < SIZE; i++, j++)
     {
-        if(buf[i] == '\0')
+        if(buf[i] == '#')
             break;
         temp[j] = buf[i];
     }
     ui->show_temp->setText(temp);
     ui->show_humi->setText(humi);
+}
+
+void Widget::on_led_on_clicked()
+{
+    QString str;
+    str.sprintf("%d", LED_ON);
+    socket->write(str.toUtf8());
+    ui->led_on->setDisabled(true);
+    ui->led_off->setEnabled(true);
+}
+
+void Widget::on_led_off_clicked()
+{
+    QString str;
+    str.sprintf("%d", LED_OFF);
+    socket->write(str.toUtf8());
+    ui->led_off->setDisabled(true);
+    ui->led_on->setEnabled(true);
 }

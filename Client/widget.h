@@ -25,9 +25,9 @@ public:
     explicit Widget(QWidget *parent = 0);
     ~Widget();
     void paintEvent(QPaintEvent *event);
-    void showImage(const char *src_image, int size_image);
-    void disposeImage(const char *buf);
-    void updateHumiTemp(const char *buf);
+    void showImage(const uchar *src_image, int size_image);
+    void disposeImage(const uchar *buf);
+    void updateHumiTemp(const uchar *buf);
 
 public slots:
     void recv();
@@ -40,8 +40,11 @@ private slots:
 
     void on_exit_clicked();
 
+    void on_led_on_clicked();
+
+    void on_led_off_clicked();
+
 private:
-    QPixmap pix;
     Ui::Widget *ui;
     QImage img;
     int size = 0;
