@@ -44,10 +44,10 @@ void loop()
   dtostrf((float)DHT11.humidity, 4, 2, humi);
   dtostrf((float)DHT11.temperature, 4, 2, temp);
 
-  if(sensorValue > 300)
-    sprintf(msg, "%s#%s#a", humi, temp); //大于300,发送a
+  if(sensorValue > 290)
+    sprintf(msg, "%s#%s#a", humi, temp); //大于290,发送a
   else
-    sprintf(msg, "%s#%s#b", humi, temp); //小于300,发送b
+    sprintf(msg, "%s#%s#b", humi, temp); //小于290,发送b
   
   Serial.print(msg);
   Serial.println();
@@ -75,5 +75,3 @@ void LED_action()
     digitalWrite(led, LOW);
   }
 }
-
-  
