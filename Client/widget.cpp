@@ -14,6 +14,9 @@ Widget::Widget(QWidget *parent) :
     ui(new Ui::Widget)
 {
     ui->setupUi(this);
+    QFont font ( "STKaiti", 25, 75);
+    ui->time_lable->setFont(font );
+    ui->time_lable->setStyleSheet("color:blue;");
 }
 
 Widget::~Widget()
@@ -25,8 +28,11 @@ void Widget::receiveshow()
 {
     ui->led_off->setDisabled(true);
     ui->led_on->setEnabled(true);
-    ui->creampushButton->setEnabled(true);
+    ui->creampushButton->setText("开启监控");
+    flag = 1;
     connect(socket,SIGNAL(readyRead()),this,SLOT(recv()));
+    connect(&timer,SIGNAL(timeout()),this,SLOT(timerout()));
+    timer.start(1000);
     this->show();
 }
 
@@ -62,17 +68,27 @@ void Widget::paintEvent(QPaintEvent *event)  //背景
     img=QImage(":/Windows2.jpg");
     QImage drawing=img.scaled(this->width(),this->height());
     pt.drawImage(0,0,drawing,0,0,this->width(),this->height());
+
+    QPen pen;
+    pen.setColor(QColor(128,0,128));
+    pen.setWidth(7);
+    pt.setPen(pen);
+    pt.drawRect(20,340,330,40);
+
+    pen.setColor(QColor(128,128,128));
+    pen.setWidth(5);
+    pt.setPen(pen);
+    pt.drawRect(9,9,442,312);
 }
 
 void Widget::showImage(const uchar * src_image, int size_image)
 {
-    qDebug() << size_image << endl;
-    qDebug() << src_image[size_image - 2] << endl;
     if(src_image[size_image - 1] == 217)
     {
         QPixmap pix;
         pix.loadFromData(src_image, size_image, "jpg");
         ui->vedioLabel->setPixmap(pix);
+        ui->vedioLabel->setScaledContents(true);
     }
 }
 
@@ -92,6 +108,7 @@ void Widget::disposeImage(const uchar * buf)
     }
     size = atoi(filesize);
     showImage(buf+i, size);
+
 }
 
 void Widget::on_creampushButton_clicked()
@@ -117,6 +134,7 @@ void Widget::on_creampushButton_clicked()
 void Widget::on_exit_clicked()
 {
     socket->close();
+    ui->vedioLabel->clear();
     this->close();
     emit dlgshow();
 }
@@ -163,4 +181,11 @@ void Widget::on_led_off_clicked()
     socket->write(str.toUtf8());
     ui->led_off->setDisabled(true);
     ui->led_on->setEnabled(true);
+}
+
+void Widget::timerout()
+{
+    QDateTime curDT=QDateTime::currentDateTime();
+    QString str1=curDT.toString("  yyyy-MM-dd  hh:mm:ss  ");
+    ui->time_lable->setText(str1);
 }

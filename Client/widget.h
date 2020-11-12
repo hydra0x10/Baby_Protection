@@ -12,6 +12,7 @@
 #include <QObject>
 #include <QIcon>
 #include <QPixmap>
+#include <QTimer>
 #include "common.h"
 namespace Ui {
 class Widget;
@@ -31,7 +32,7 @@ public:
 
 public slots:
     void recv();
-
+    void timerout();
 private slots:
 
     void receiveshow();
@@ -44,12 +45,13 @@ private slots:
 
     void on_led_off_clicked();
 
+
 private:
     Ui::Widget *ui;
     QImage img;
     int size = 0;
     QByteArray video;
-
+    QTimer timer;
 
 
 
