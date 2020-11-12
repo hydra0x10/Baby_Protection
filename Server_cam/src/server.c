@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "server.h"
 #include "camera.h"
+#include "pwm.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -11,6 +12,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 
 int video_flag = 0;
 int buzz_flag = 0;
@@ -65,7 +67,7 @@ int doConnect(const int newSocketId, int fd)
 	
 	char recvCommand;
 	pthread_t thread1;
-	pthread_t thread2;
+	pthread_t thread2, thread3;
 	int arg = newSocketId;
 	
     /*
@@ -78,6 +80,8 @@ int doConnect(const int newSocketId, int fd)
 	pthread_detach(thread1);
 	pthread_create(&thread2, NULL, send_Humi_Temp, &arg);
 	pthread_detach(thread2);
+	pthread_create(&thread3, NULL, pwm_buzz, NULL);
+	pthread_detach(thread3);
 
 	video_flag = VIDEO_OFF;
 	cameraFd = fd;
@@ -189,11 +193,15 @@ void * send_Humi_Temp(void * arg)
 		memset(msg, 0, SIZE);
 
 		read(uartFd, buf, 20);
+		printf("%s\n", buf);
 		len = strlen(buf);
-		if(buf[len - 1] == 'a')
-			buzz_flag = 1;
-		else
+		printf("%d---------\n", len);
+		if(buf[len - 3] == 'a')
+		{
 			buzz_flag = 0;
+		}
+		else
+			buzz_flag = 1;
 		sprintf(msg, "%d%s", _HUMI_TEMP,  buf);
 		
 		if(0 >= send(newSocketId, msg, SIZE, 0))
@@ -205,4 +213,37 @@ void * send_Humi_Temp(void * arg)
 	printf("send_Humi_Temp exit\r\n");
 	close(newSocketId);
 	close(uartFd);
+}
+
+void * pwm_buzz(void *arg)
+{
+	int buzz_on = 0;
+	buzz_flag = 0;
+	int buzzFd = open(PWM_DEV, O_RDWR);
+	if(buzzFd < 0)
+	{
+		perror("open buzz");
+		pthread_exit(0);
+	}
+	ioctl(buzzFd, FSPWM_SET_FREQ, 900);
+	while(1)
+	{
+		if(video_flag == -1)
+		{
+			ioctl(buzzFd, FSPWM_STOP);
+			close(buzzFd);
+			printf("buzz eixt\r\n");
+			pthread_exit(0);
+		}
+		if(buzz_flag == 0 && buzz_on == 0)
+		{
+			ioctl(buzzFd, FSPWM_START);
+			buzz_on = -1;
+		}
+		if(buzz_flag == 1 && buzz_on == -1)
+		{
+			ioctl(buzzFd, FSPWM_STOP);
+			buzz_on = 0;
+		}
+	}
 }
