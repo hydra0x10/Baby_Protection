@@ -15,8 +15,12 @@ Widget::Widget(QWidget *parent) :
 {
     ui->setupUi(this);
     QFont font ( "STKaiti", 25, 75);
-    ui->time_lable->setFont(font );
+    ui->time_lable->setFont(font);
     ui->time_lable->setStyleSheet("color:blue;");
+
+    QFont font1 ( "STKaiti", 20, 75);
+    ui->label->setFont(font1);
+    ui->label->setStyleSheet("color:red;");
 }
 
 Widget::~Widget()
@@ -83,7 +87,7 @@ void Widget::paintEvent(QPaintEvent *event)  //背景
 
 void Widget::showImage(const uchar * src_image, int size_image)
 {
-    if(src_image[size_image - 1] == 217)
+    if(src_image[size_image - 1] == 217) //0XFF 0XD9 开头0XFF 0XFF jpg格式图片结尾
     {
         QPixmap pix;
         pix.loadFromData(src_image, size_image, "jpg");
@@ -108,7 +112,10 @@ void Widget::disposeImage(const uchar * buf)
     }
     size = atoi(filesize);
     showImage(buf+i, size);
-
+    if(flag == 1)
+    {
+        ui->vedioLabel->clear();
+    }
 }
 
 void Widget::on_creampushButton_clicked()
@@ -133,6 +140,7 @@ void Widget::on_creampushButton_clicked()
 
 void Widget::on_exit_clicked()
 {
+    socket->disconnectFromHost();
     socket->close();
     ui->vedioLabel->clear();
     this->close();
@@ -163,6 +171,11 @@ void Widget::updateHumiTemp(const uchar *buf)
     }
     ui->show_temp->setText(temp);
     ui->show_humi->setText(humi);
+    i++;
+    if(buf[i] == 'a')
+        ui->label->setText("火灾报警！");
+    else
+        ui->label->clear();
 }
 
 void Widget::on_led_on_clicked()

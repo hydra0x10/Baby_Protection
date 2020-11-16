@@ -22,6 +22,7 @@ private slots:
     void receivelogin();
     void on_pushButton_2_clicked();
 
+
 signals:
     void mainshow();
 private:

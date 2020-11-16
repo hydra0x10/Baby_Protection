@@ -9,7 +9,8 @@ int main(int argc, char *argv[])
     Dialog d;
     Widget w;
     d.show();
-    d.setFixedSize(480,300);
+    d.setFixedSize(523,300);
+    w.setFixedSize(600,400);
     d.setWindowTitle("Baby");
     d.setWindowIcon(QIcon(":/lovely_duck.ico"));
     w.setWindowTitle("Baby");

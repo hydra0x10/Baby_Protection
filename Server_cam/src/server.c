@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "server.h"
 #include "camera.h"
-#include "pwm.h"
+#include "fspwm.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
-int video_flag = 0;
-int buzz_flag = 0;
+volatile int video_flag = 0;
+int buzz_flag = 1;
 
 extern struct cam_buf bufs[REQBUFS_COUNT];
 extern unsigned char rgbBuffer[IMAGEHEIGHT * IMAGEWIDTH * 3];
@@ -25,15 +25,10 @@ int uartFd;
 extern int uart_Init();
 int cameraFd;
 
-int socketInit(const char * ip, const int port)
+int socketInit(const int port)
 {
-	if(NULL == ip)
-	{
-		printf("arg error!\r\n");
-		return -1;
-	}
 	int socketId = 0;
-	socketId = socket(PF_INET, SOCK_STREAM, 0);
+	socketId = socket(PF_INET, SOCK_STREAM, 0); //创建套接字，流式套接字， TCP
 	if(0 > socketId)
 	{
 		perror("socket error");
@@ -41,13 +36,13 @@ int socketInit(const char * ip, const int port)
 	}
 
 	int on = 1;
-	setsockopt(socketId, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+	setsockopt(socketId, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)); //设置地址复用
 
 	struct sockaddr_in addr = {
 		.sin_family = PF_INET,
 		.sin_port = htons(PORT),
 		.sin_addr = {
-			.s_addr = inet_addr(ip),
+			.s_addr = INADDR_ANY,
 		},
 	};
 
@@ -70,11 +65,6 @@ int doConnect(const int newSocketId, int fd)
 	pthread_t thread2, thread3;
 	int arg = newSocketId;
 	
-    /*
-	int optVal = SIZE;
-    int optLen = sizeof(int);
-    setsockopt(newSocketId, SOL_SOCKET, SO_SNDBUF, &optVal, optLen);
-	*/
 	int command = 0;
 	pthread_create(&thread1, NULL, sendImg, &arg);
 	pthread_detach(thread1);
@@ -90,7 +80,6 @@ int doConnect(const int newSocketId, int fd)
 	{
 		if(0 >= recv(newSocketId, &recvCommand, sizeof(recvCommand), 0))
 		{
-			perror("recv error:");
 			video_flag = -1;
 			return -1;
 		}
@@ -120,9 +109,7 @@ int doConnect(const int newSocketId, int fd)
 void *sendImg(void * arg)
 {
 	int newSocketId = *((int *)arg);
-	char filename[20] = {0};
 	int  filesize = 0;
-	struct stat buf;
 	int index = 0;
 	int len = 0, sendSize;
 	
@@ -148,12 +135,13 @@ void *sendImg(void * arg)
 		{
 			memset(rgbBuffer, 0, (3 * IMAGEHEIGHT * IMAGEWIDTH));
 			
-			yuyv_to_rgb(bufs[index].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
+			//yuyv_to_rgb(bufs[index].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
+			yuv_to_rgb(bufs[index].start, rgbBuffer, IMAGEWIDTH, IMAGEHEIGHT);
 
 			char * jpegBuffer = NULL;
 			filesize = rgb_to_jpeg(rgbBuffer, (unsigned char **)&jpegBuffer, IMAGEWIDTH, IMAGEHEIGHT);
 			memset(msg, '0', SIZE);
-			sprintf(msg, "%d%d#", _FILE, filesize);
+			sprintf(msg, "%d%d#", _FILE, filesize); //命令字+文件大小+‘#’+文件内容
 			len  = strlen(msg);
 			memcpy(msg+len, jpegBuffer, filesize);		
 			//printf("%d\r\n", *(msg+len+filesize-1));
@@ -161,8 +149,8 @@ void *sendImg(void * arg)
 			sendSize = send(newSocketId, msg, SIZE, 0);
 			if(0 >= sendSize)
 			{
-				perror("send:");
 				camera_eqbuf(cameraFd,index);
+				free(jpegBuffer);
 				break;	
 			}
 			//printf("filesize = %d, sendSize = %d\r\n", filesize, sendSize);
@@ -170,7 +158,6 @@ void *sendImg(void * arg)
 		}
 		camera_eqbuf(cameraFd,index);
 	}
-	
 	//camera_stop(cameraFd);
 	printf("sendImg exit\r\n");
 }
@@ -192,17 +179,15 @@ void * send_Humi_Temp(void * arg)
 		memset(buf, 0, 20);
 		memset(msg, 0, SIZE);
 
-		read(uartFd, buf, 20);
-		printf("%s\n", buf);
+		read(uartFd, buf, 20);  //湿度#温度#a 湿度#温度#b
 		len = strlen(buf);
-		printf("%d---------\n", len);
-		if(buf[len - 3] == 'a')
+		if(buf[len - 1] == 'a')
 		{
 			buzz_flag = 0;
 		}
 		else
 			buzz_flag = 1;
-		sprintf(msg, "%d%s", _HUMI_TEMP,  buf);
+		sprintf(msg, "%d%s", _HUMI_TEMP,  buf); //命令字+湿度#温度#a
 		
 		if(0 >= send(newSocketId, msg, SIZE, 0))
 		{
@@ -218,7 +203,7 @@ void * send_Humi_Temp(void * arg)
 void * pwm_buzz(void *arg)
 {
 	int buzz_on = 0;
-	buzz_flag = 0;
+	buzz_flag = 1;
 	int buzzFd = open(PWM_DEV, O_RDWR);
 	if(buzzFd < 0)
 	{

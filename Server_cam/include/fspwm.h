@@ -1,9 +1,9 @@
-#ifndef _PWM_H
-#define _PWM_H
+#ifndef _FSPWM_H
+#define _FSPWM_H
 
 
 #define FSPWM_MAGIC	'f'
-#define ARRAY_SIZE(a)	(sizeof(a) / sizeof(a[0]))
+
 #define PWM_DEV "/dev/pwm"
 #define BEAT	250000
 #define FSPWM_START	_IO(FSPWM_MAGIC, 0)

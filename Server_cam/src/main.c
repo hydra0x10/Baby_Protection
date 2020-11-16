@@ -8,7 +8,7 @@
 
 int main(int argc, const char *argv[])
 {
-	int socketId = socketInit(SIP, PORT);
+	int socketId = socketInit(PORT);
 	if(0 > socketId)
 	{
 		printf("socketInit error\r\n");

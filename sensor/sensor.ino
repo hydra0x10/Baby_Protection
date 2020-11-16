@@ -26,7 +26,7 @@ void loop()
 {
   sensorValue = analogRead(Sensor_AO);
  //Serial.print("Harmful gas concentration: ");
- //Serial.println(sensorValue);
+//Serial.println(sensorValue);
   int chk = DHT11.read(DHT11PIN);
  //Serial.print("Humidity (%): ");
 //湿度读取
@@ -44,13 +44,14 @@ void loop()
   dtostrf((float)DHT11.humidity, 4, 2, humi);
   dtostrf((float)DHT11.temperature, 4, 2, temp);
 
-  if(sensorValue > 290)
-    sprintf(msg, "%s#%s#a", humi, temp); //大于290,发送a
+ 
+  if(sensorValue > 500)
+    sprintf(msg, "%s#%s#a", humi, temp); //大于500,发送a
   else
-    sprintf(msg, "%s#%s#b", humi, temp); //小于290,发送b
+    sprintf(msg, "%s#%s#b", humi, temp); //小于500,发送b
   
   Serial.print(msg);
-  Serial.println();
+
   delay(2000); 
 }
 
@@ -75,3 +76,5 @@ void LED_action()
     digitalWrite(led, LOW);
   }
 }
+
+  

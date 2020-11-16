@@ -1,10 +1,8 @@
 #ifndef _SERVER_H_
 #define _SERVER_H_
 
-#define SIP "192.168.0.120"
-//#define SIP "192.168.0.214"
 #define PORT 10011
-#define MAX 50
+#define MAX 5
 #define SIZE (32*1024)
 
 enum COMMAND
@@ -22,7 +20,7 @@ enum TYPE
 };
 
 
-int socketInit(const char * ip, const int port);
+int socketInit(const int port);
 /*
  功能:
  	初始化一个套接字
@@ -52,5 +50,7 @@ void *sendImg(void * arg);
 
 void *send_Humi_Temp(void * arg);
 
+
+void *pwm_buzz(void *arg);
 
 #endif //_SERVER_H_

@@ -36,6 +36,12 @@ void Dialog::on_pushButton_clicked()
 {
     socket = new QTcpSocket;
     socket->connectToHost(SIP, PORT);
+
+    QFont font ( "STKaiti", 25, 75);
+    ui->label_2->setFont(font);
+    ui->label_2->setStyleSheet("color:red;");
+
+    ui->label_2->clear();
     this->close();
     emit mainshow();
 }

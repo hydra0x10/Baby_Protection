@@ -31,8 +31,9 @@ int camera_stop(int fd);
 int camera_exit(int fd);
 
 int buf_init(int fd);
+
 //YUV转RGB
-int yuyv_to_rgb(char * pointer, unsigned char * frame_buffer, int width, int height);
+void yuv_to_rgb(unsigned char* yuv,unsigned char* rgb, int width, int height);
 
 
 long rgb_to_jpeg(char *rgb, unsigned char ** jpeg, int width, int height);

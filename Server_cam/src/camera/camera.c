@@ -31,12 +31,14 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 	struct v4l2_format format;
 	struct v4l2_capability capability;
 
-	/*open device of video*/
+	//打开设备
 	if((fd = open(devpath, O_RDWR)) == -1)
 	{
 		perror("open");
 		return -1;
 	}
+	
+	//查询设备支持的格式
 	struct v4l2_fmtdesc fmtdesc;
 	memset(&fmtdesc, 0, sizeof(fmtdesc));
 	fmtdesc.index = 0;  
@@ -62,7 +64,7 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 		fmtdesc.index++;
 	}
 
-	/*ioctl look support drives*/
+	//查询设备的能力
 	ret = ioctl(fd, VIDIOC_QUERYCAP, &capability);
 	if(ret == -1)
 	{
@@ -70,7 +72,7 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 		return -1;
 	}
 
-	/*look support video capture yes or no*/
+	//查看视频捕捉
 	if(!(capability.capabilities & V4L2_CAP_VIDEO_CAPTURE))
 	{
 		fprintf(stderr, "camera->init: device can not supprot V4L2_CAP_VIDEO_CAPTURE.\n");
@@ -95,7 +97,6 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 		}
 	}
 
-	/*look device support video stream yes or no*/
 	if(!(capability.capabilities & V4L2_CAP_STREAMING))
 	{
 		fprintf(stderr,"camera->init: device can not support V4L2_CAP_STREAMING.\n");
@@ -104,14 +105,14 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 	}
 
 
-	/*set capture format YUYV*/
+	//设置视频采集的格式
 	memset(&format, 0, sizeof(format));
-	format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;			//永远都是这个类型
-	format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;		//设置采集图片的格式
+	format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;	//YUYV
 	format.fmt.pix.width = width;
 	format.fmt.pix.height = height;
 	format.fmt.pix.field = V4L2_FIELD_ANY;				//设置图片一行一行的采集
-	ret = ioctl(fd, VIDIOC_S_FMT, &format);				//ioctl	是设置生效
+	ret = ioctl(fd, VIDIOC_S_FMT, &format);
 	if(ret == -1)
 	{
 		perror("camera init");
@@ -126,7 +127,7 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 		perror("camera init");
 		return -1;
 	}
-	/*向驱动申请缓存*/
+	//申请缓存内存
 	memset(&reqbufs, 0, sizeof(struct v4l2_requestbuffers));
 	reqbufs.count	= REQBUFS_COUNT;					//缓存区个数
 	reqbufs.type	= V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -139,7 +140,7 @@ int camera_init(char *devpath, unsigned int width, unsigned int height)
 		return -1;
 	}
 
-	/*循环映射并入队*/
+	//循环映射并入队
 	for (i = 0; i < reqbufs.count; i++)
 	{
 		/*真正获取缓存的地址大小*/
@@ -303,69 +304,80 @@ int buf_init(int fd)
 	}
 }
 
-int yuyv_to_rgb(char * pointer, unsigned char * frame_buffer, int width, int height)
+void yuv_to_rgb(unsigned char* yuv,unsigned char* rgb, int width, int height)
 {
-	int i,j;
-    unsigned char y1,y2,u,v;
-    int r1,g1,b1,r2,g2,b2;
-    for(i=0;i<height;i++)
+    unsigned int i;
+    unsigned char* y0 = yuv + 0;   
+    unsigned char* u0 = yuv + 1;
+    unsigned char* y1 = yuv + 2;
+    unsigned char* v0 = yuv + 3;
+
+    unsigned  char* r0 = rgb + 0;
+    unsigned  char* g0 = rgb + 1;
+    unsigned  char* b0 = rgb + 2;
+    unsigned  char* r1 = rgb + 3;
+    unsigned  char* g1 = rgb + 4;
+    unsigned  char* b1 = rgb + 5;
+   
+    float rt0 = 0, gt0 = 0, bt0 = 0, rt1 = 0, gt1 = 0, bt1 = 0;
+
+    for(i = 0; i <= (width * height) / 2 ;i++)
     {
-		for(j=0;j<width/2;j++)//每次取4个字节，也就是两个像素点，转换rgb，6个字节，还是两个像素点
-		{
-			y1 = *( pointer + (i*width/2+j)*4);     
-			u  = *( pointer + (i*width/2+j)*4 + 1);
-			y2 = *( pointer + (i*width/2+j)*4 + 2);
-			v  = *( pointer + (i*width/2+j)*4 + 3);
-		 
-			r1 = y1 + 1.042*(v-128);
-			g1 = y1 - 0.34414*(u-128) - 0.71414*(v-128);
-			b1 = y1 + 1.772*(u-128);
-		 
-			r2 = y2 + 1.042*(v-128);
-			g2 = y2 - 0.34414*(u-128) - 0.71414*(v-128);
-			b2 = y2 + 1.772*(u-128);
-		 
-			if(r1>255)
-			r1 = 255;
-			else if(r1<0)
-			r1 = 0;
-		 
-			if(b1>255)
-			b1 = 255;
-			else if(b1<0)
-			b1 = 0;    
-		 
-			if(g1>255)
-			g1 = 255;
-			else if(g1<0)
-			g1 = 0;    
-		 
-			if(r2>255)
-			r2 = 255;
-			else if(r2<0)
-			r2 = 0;
-		 
-			if(b2>255)
-			b2 = 255;
-			else if(b2<0)
-			b2 = 0;    
-		 
-			if(g2>255)
-			g2 = 255;
-			else if(g2<0)
-			g2 = 0;        
-		 
-			*(frame_buffer + (i*width/2+j)*6    ) = (unsigned char)b1;
-			*(frame_buffer + (i*width/2+j)*6 + 1) = (unsigned char)g1;
-			*(frame_buffer + (i*width/2+j)*6 + 2) = (unsigned char)r1;
-			*(frame_buffer + (i*width/2+j)*6 + 3) = (unsigned char)b2;
-			*(frame_buffer + (i*width/2+j)*6 + 4) = (unsigned char)g2;
-			*(frame_buffer + (i*width/2+j)*6 + 5) = (unsigned char)r2;
-		}
-    }
+        bt0 = 1.164 * (*y0 - 16) + 2.018 * (*u0 - 128); 
+        gt0 = 1.164 * (*y0 - 16) - 0.813 * (*v0 - 128) - 0.394 * (*u0 - 128); 
+        rt0 = 1.164 * (*y0 - 16) + 1.596 * (*v0 - 128); 
+   
+    	bt1 = 1.164 * (*y1 - 16) + 2.018 * (*u0 - 128); 
+        gt1 = 1.164 * (*y1 - 16) - 0.813 * (*v0 - 128) - 0.394 * (*u0 - 128); 
+        rt1 = 1.164 * (*y1 - 16) + 1.596 * (*v0 - 128); 
+    
+      
+       	        if(rt0 > 250)  	rt0 = 255;
+		if(rt0< 0)    	rt0 = 0;	
+
+		if(gt0 > 250) 	gt0 = 255;
+		if(gt0 < 0)	gt0 = 0;	
+
+		if(bt0 > 250)	bt0 = 255;
+		if(bt0 < 0)	bt0 = 0;	
+
+		if(rt1 > 250)	rt1 = 255;
+		if(rt1 < 0)	rt1 = 0;	
+
+		if(gt1 > 250)	gt1 = 255;
+		if(gt1 < 0)	gt1 = 0;	
+
+		if(bt1 > 250)	bt1 = 255;
+		if(bt1 < 0)	bt1 = 0;	
+					
+		*r0 = (unsigned char)rt0;
+		*g0 = (unsigned char)gt0;
+		*b0 = (unsigned char)bt0;
+	
+		*r1 = (unsigned char)rt1;
+		*g1 = (unsigned char)gt1;
+		*b1 = (unsigned char)bt1;
+
+        yuv = yuv + 4;
+        rgb = rgb + 6;
+        if(yuv == NULL)
+          break;
+
+        y0 = yuv;
+        u0 = yuv + 1;
+        y1 = yuv + 2;
+        v0 = yuv + 3;
+  
+        r0 = rgb + 0;
+        g0 = rgb + 1;
+        b0 = rgb + 2;
+        r1 = rgb + 3;
+        g1 = rgb + 4;
+        b1 = rgb + 5;
+    }   
 }
 
-long rgb_to_jpeg(char *rgb, unsigned char ** jpeg, int width, int height)
+long rgb_to_jpeg(char *rgb, unsigned char ** jpeg, int width, int height)  //jpeg库
 {
 	long jpeg_size;
 	struct jpeg_compress_struct jcs;
@@ -376,7 +388,7 @@ long rgb_to_jpeg(char *rgb, unsigned char ** jpeg, int width, int height)
 	jcs.err = jpeg_std_error(&jem);
 	jpeg_create_compress(&jcs);
 	
-	jpeg_mem_dest(&jcs, jpeg, &jpeg_size);
+	jpeg_mem_dest(&jcs, jpeg, &jpeg_size); //jpeg_stdio_dest(&jcs, fp, &jpeg_size); 
 	
 	jcs.image_width = width;
 	jcs.image_height = height;
